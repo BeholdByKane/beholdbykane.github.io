@@ -1,0 +1,288 @@
+---
+title: "Bellabeat Case Study"
+author: "Kane M"
+date: "2023-02-03"
+output: html_document
+---
+
+## How Can We Drive Wellness Tech Toward Truly Being Smart?
+
+### Introduction
+
+Bellabeat is a successful small high-tech manufacturer of health-focused products with the intention of empowering women with the knowledge of their own health and habits. It has the potential to become a larger player in the global smart device market, and Urška Sršen, cofounder and Chief Creative Officer of Bellabeat, believes that analyzing fitness data from smart devices could help unlock new opportunities of growth for the company. You have been tasked with focusing on one of Bellabeat's products and analyze smart device data to gain insight into how consumers are using their smart devices.
+
+### Products
+
+-   Bellabeat app: The Bellabeat app provides users with health data related to their activity, sleep, stress, menstrual cycle, and mindfulness habits. This data can help users better understand their current habits and make healthy decisions. The Bellabeat app connects to their line of smart wellness products.
+
+-   Leaf: Bellabeat's classic wellness tracker can be worn as a bracelet, necklace, or clip. The Leaf tracker connects to the Bellabeat app to track activity, sleep, and stress.
+
+-   Time: This wellness watch combines the timeless look of a classic timepiece with smart technology to track user activity, sleep, and stress. The Time watch connects to the Bellabeat app to provide you with insights into your daily wellness.
+
+-   Spring: This is a water bottle that tracks daily water intake using smart technology to ensure that you are appropriately hydrated throughout the day. The Spring bottle connects to the Bellabeat app to track your hydration levels.
+
+-   Bellabeat membership: Bellabeat also offers a subscription-based membership program for users. Membership gives users 24/7 access to fully personalized guidance on nutrition, activity, sleep, health and beauty, and mindfulness based on their lifestyle and goals.
+
+I will be conducting analysis with the Bellabeat App in mind.
+
+### Setting Up My Environment
+
+Setting up my environment by loading the 'tidyverse', 'lubridate', 'here', 'janitor', and 'skimr' packages.
+
+```{r loading packages}
+library(tidyverse)
+library(lubridate)
+library(here)
+library(skimr)
+library(janitor)
+```
+
+### Importing the Datasets
+
+```{r importing datasets}
+daily_activity <- read.csv("Bellabeat Project/dailyActivity_merged.csv")
+daily_sleep <- read.csv("Bellabeat Project/sleepDay_merged.csv")
+weight_log <- read.csv("Bellabeat Project/weightLogInfo_merged.csv")
+```
+
+### Double Checking Datasets
+
+```{r check datasets}
+##daily_activity
+head(daily_activity)
+colnames(daily_activity)
+
+##daily_sleep
+head(daily_sleep)
+colnames(daily_sleep)
+
+##weight_log
+head(weight_log)
+colnames(weight_log)
+```
+
+### Data Cleaning
+
+Checking for and removing any duplicates from the datasets.
+
+```{r duplicates}
+sum(duplicated(daily_activity))
+sum(duplicated(daily_sleep))
+sum(duplicated(weight_log))
+```
+
+Three duplicates came up in the 'daily_sleep' dataset and were removed.
+
+```{r ELIMINATE THE DUPES}
+dailySleep_cleaned <- unique(daily_sleep)
+sum(duplicated(dailySleep_cleaned))
+```
+
+To make the data frames easier to merge later, I changed the 'ActivityDate' and 'SleepDay' columns in 'daily_activity' and 'daily_sleep' respectively to simply be 'Date'. I also reformatted 'Date' in each dataset.
+
+```{r change the dates}
+dailyActivity_cleaned <- daily_activity %>%
+  rename(Date = ActivityDate) %>%
+  mutate(Date = mdy(Date))
+dailySleep_cleaned <- dailySleep_cleaned %>%
+  rename(Date = SleepDay) %>%
+  mutate(Date = mdy_hms(Date))
+
+weightLog_cleaned <- weight_log %>%
+  mutate(Date = mdy_hms(Date))
+
+##double check changes
+str(dailyActivity_cleaned)
+str(dailySleep_cleaned)
+str(weightLog_cleaned)
+```
+
+Next, I checked for inconsistent or missing entries.
+
+```{r missing entries}
+sum(is.na(dailyActivity_cleaned))
+sum(is.na(dailySleep_cleaned))
+sum(is.na(weightLog_cleaned))
+
+## there are 65 values missing in weightLog_cleaned
+
+colSums(is.na(weightLog_cleaned))
+nrow(weightLog_cleaned)
+
+## all missing values are from the 'Fat' column. There also 67 rows available in 'weightLog_cleaned'
+## meaning that only 2 values are in 'Fat'. Because this is a third party dataset, it can not be determined
+## what thhese values were supposed to be. Because of this and the column not being needed for my analysis,
+## 'Fat' will be removed.
+
+weightLog_cleaned <- weightLog_cleaned[, -5]
+
+## confirming removal of 'Fat'
+
+colnames(weightLog_cleaned)
+colSums(is.na(weightLog_cleaned))
+
+## there is more user data logged in dailyActivity than both dailySleep and weightLog
+
+n_distinct(dailyActivity_cleaned$Id)
+n_distinct(dailySleep_cleaned$Id)
+n_distinct(weightLog_cleaned$Id)
+
+## there are a few of columns with zero values in dailyActivity, which can not be possible  
+## given the data logged. In order to eliminate any potential bias, rows with these values will be removed
+
+dailyActivity_cleaned  <- dailyActivity_cleaned %>%
+  filter(TotalSteps > 0, Calories > 0, TotalDistance  > 0)
+
+## confirm changes
+
+sum(dailyActivity_cleaned$TotalSteps <= 0)
+sum(dailyActivity_cleaned$Calories <= 0)
+sum(dailyActivity_cleaned$TotalDistance <= 0)
+
+## there is no need to make changes to weightLog and dailySleep because there are no zero values
+```
+
+After my final edits to the data frames, I checked the number of rows left.
+
+```{r final dataframe rows}
+nrow(dailyActivity_cleaned)
+nrow(dailySleep_cleaned)
+nrow(weightLog_cleaned)
+```
+
+### Summarizing the Data
+
+```{r summarize the data, echo=FALSE}
+dailyActivity_cleaned %>%
+  select(TotalSteps, TotalDistance, Calories, SedentaryMinutes) %>%
+  summary()
+dailySleep_cleaned %>%
+  select(TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) %>%
+  summary()
+weightLog_cleaned %>%
+  select(BMI, WeightKg) %>%
+  summary()
+```
+
+### Findings
+
+Average Steps: 8329 (below daily recommendation)
+
+Average Distance: 5.986km
+
+Average Calories Burned: 2362/day
+
+Average Sedentary Minutes: 955.2 (about 16 hours)
+
+Average Sleep Time: 419.2 minutes (about 7 hours)
+
+Average Time in Bed: 458.2 minutes
+
+Average BMI:25.19 (majority of users are classified as overweight)
+
+Average Weight: 72.04kg
+
+Notable Outlier: One user only reported one instance of sleeping for an hour but logged 31 days of activity.
+
+Findings are subject to bias because the gender of participants was not specified and we do not have enough data.
+
+### Visualizing the Data
+
+I need to merge the dataframes in order to draw deeper conclusions and create my visualizations.
+
+```{r merging data}
+final_dailySleep <- merge(dailyActivity_cleaned, dailySleep_cleaned, by= c("Id", "Date"))
+final_dailyWeight <- merge(dailyActivity_cleaned, weightLog_cleaned, by= c("Id", "Date"))
+```
+
+#### Steps vs Calories
+
+```{r steps vs calories, echo=FALSE}
+ggplot(data = final_dailySleep, aes(x=TotalSteps, y=Calories)) +
+  geom_point(aes(color = Calories))  +
+  geom_smooth() +
+labs(title="Total Steps vs Calories Burned",
+    x = "Total Steps Taken",
+    y = "Calories Burned")
+```
+
+As the chart shows, more calories are consistently burned at higher step counts.
+
+#### Idle Activity vs Calories
+
+```{r sedentary vs calories, echo=FALSE}
+ggplot(data = final_dailySleep, aes(x = SedentaryMinutes, y = Calories)) +
+  geom_point() +
+  geom_smooth() +
+labs(title = "Sedentary Minutes vs Calories Burned",
+    x = "Sedentary Minutes",
+    y = "Calories Burned")
+
+```
+
+No conclusive evidence of the inverse can be drawn from this comparison.
+
+#### Activity vs Body Mass Index (BMI)
+
+```{r steps vs BMI, echo = FALSE}
+ggplot(data = final_dailyWeight, aes(x = TotalSteps, y = BMI)) +
+  geom_point(aes(color = BMI)) +
+  geom_smooth() +
+labs(title = "Total Steps vs Body Mass Index (BMI)",
+     x = "Total Steps",
+     y = "BMI")
+```
+
+```{r sedentary vs bmi, echo = FALSE}
+ggplot(data = final_dailyWeight, aes(x = SedentaryMinutes, y = BMI)) +
+  geom_point(aes(color = BMI)) +
+  geom_smooth() +
+  labs(title = "Sedentary Minutes vs Body Mass Index (BMI)",
+       x = "Sedentary Minutes",
+       y = "BMI")
+```
+
+As with the comparison with calories, taking more steps throughout the day can work to lower one's BMI. Spending less time in idle activities does have an effect, but it is not as substantial as generally being more active.
+
+#### Idle Activity vs Time Spent Sleeping
+
+```{r sedentary vs sleep, echo=FALSE}
+ggplot(data = final_dailySleep, aes(x = TotalMinutesAsleep/60, y = SedentaryMinutes/60)) +
+  geom_point() +
+  geom_smooth() +
+  labs(title = "Sedentary Time vs Time Spent Sleeping",
+       x = "Time Spent Sleeping",
+       y = "Sedentary Time")
+```
+
+There is actually a negative correlation here; the more time one spends idle in bed, the less time they are actually sleeping. However this can be due to a number of reasons and may not always be purposeful. Insomnia, levels of exhaustion, and more can contribute to this factor.
+
+### Conclusion
+
+#### BMI and Weight
+
+The average BMI of the entrants was 25.19. According to the Center for Disease Control this is considered to be overweight. According to our data, spending less time active and more of it doing sedentary activities can lead to higher BMI ratings. However there are other factors that contribute to BMI. This along with the limitations of our data (only 67 entries in the weight log) delivered biased results.
+
+#### Sleep
+
+The average amount of time spent sleeping is about 7 hours, which is good! But without considering health conditions which could affect one's sleep and the age group of our entrants not being specified, the data is biased.
+
+### Recommendations
+
+1.  Incentives for reaching goals to drive engagement
+
+-   Set daily steps goals and weekly activity goals. Remind ALL users, not just obese or overweight ones.
+
+-   Reward users with points which can be redeemed for gift cards, wellness products and accessories, or leisurely activities such as spa visits.
+
+2.  Reinforce set goals and motivate users
+
+-   Sedentary lifestyles can be the result of one's job, so you can also add reminders to get up and take short walking breaks.
+
+-   Sleep is just as important as physical activity in monitoring one's health. As such, we can advise users on sleep schedules to keep them on track with
+
+-   their goals and allow them to add personalized alarms to reach said goals.
+
+-   Adding a weight log can also help drive interaction with the Bellabeat app. Tracking one's weight is another important factor in monitoring their health.
+
+This concludes my first case study and is the end of my Data Analytics course. Thank you for sticking through to the end!
